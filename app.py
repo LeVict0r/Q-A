@@ -10,7 +10,11 @@ import streamlit as st
 from PIL import Image
 
 APP_TITLE = "Q&A Lite (Streamlit)"
-DB_PATH = os.environ.get("QNA_DB_PATH", "qna_streamlit.db")
+
+# --- Robust DB-path (Cloud-safe) ---
+# På Streamlit Cloud er /mount/data skrivbart. Lokalt falder vi tilbage til current dir.
+_default_cloud_dir = "/mount/data" if os.path.isdir("/mount/data") else os.getcwd()
+DB_PATH = os.environ.get("QNA_DB_PATH", os.path.join(_default_cloud_dir, "qna_streamlit.db"))
 
 # ---------- DB Helpers ----------
 def get_db():
@@ -46,8 +50,10 @@ def ensure_session(session_id, title="", admin_key=None):
         return dict(row)
     if not admin_key:
         admin_key = uuid.uuid4().hex[:8]
-    cur.execute("INSERT INTO sessions(id,title,admin_key,created_at) VALUES(?,?,?,?)",
-                (session_id, title, admin_key, int(time.time())))
+    cur.execute(
+        "INSERT INTO sessions(id,title,admin_key,created_at) VALUES(?,?,?,?)",
+        (session_id, title, admin_key, int(time.time()))
+    )
     conn.commit()
     return {"id": session_id, "title": title, "admin_key": admin_key, "created_at": int(time.time())}
 
@@ -62,8 +68,10 @@ def add_question(session_id, text):
     qid = uuid.uuid4().hex
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("INSERT INTO questions(id,session_id,text,created_at,hidden,answered) VALUES(?,?,?,?,0,0)",
-                (qid, session_id, text[:1000], int(time.time())))
+    cur.execute(
+        "INSERT INTO questions(id,session_id,text,created_at,hidden,answered) VALUES(?,?,?,?,0,0)",
+        (qid, session_id, text[:1000], int(time.time()))
+    )
     conn.commit()
     return qid
 
@@ -71,19 +79,28 @@ def list_questions(session_id, include_hidden=True):
     conn = get_db()
     cur = conn.cursor()
     if include_hidden:
-        cur.execute("""SELECT * FROM questions WHERE session_id=?
-                       ORDER BY answered ASC, hidden ASC, created_at ASC""", (session_id,))
+        cur.execute(
+            """SELECT * FROM questions WHERE session_id=?
+               ORDER BY answered ASC, hidden ASC, created_at ASC""",
+            (session_id,)
+        )
     else:
-        cur.execute("""SELECT * FROM questions WHERE session_id=? AND hidden=0
-                       ORDER BY answered ASC, created_at ASC""", (session_id,))
+        cur.execute(
+            """SELECT * FROM questions WHERE session_id=? AND hidden=0
+               ORDER BY answered ASC, created_at ASC""",
+            (session_id,)
+        )
     rows = cur.fetchall()
     return [dict(r) for r in rows]
 
 def toggle_field(qid, field):
-    assert field in ("hidden","answered")
+    assert field in ("hidden", "answered")
     conn = get_db()
     cur = conn.cursor()
-    cur.execute(f"UPDATE questions SET {field} = CASE {field} WHEN 1 THEN 0 ELSE 1 END WHERE id=?", (qid,))
+    cur.execute(
+        f"UPDATE questions SET {field} = CASE {field} WHEN 1 THEN 0 ELSE 1 END WHERE id=?",
+        (qid,)
+    )
     conn.commit()
 
 def delete_question(qid):
@@ -106,6 +123,7 @@ def make_qr_png(data: str) -> Image.Image:
     qr.add_data(data)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
+    # qrcode returnerer en PilImage-wrapper – træk ægte PIL.Image ud
     if hasattr(img, "get_image"):
         img = img.get_image()
     return img.convert("RGB")
@@ -117,11 +135,13 @@ def header():
     st.caption("Superenkel, self-hosted live Q&A – publikum skriver spørgsmål, du modererer.")
 
 def nav():
+    # Ny API: st.query_params er dict-lignende
     qp = dict(st.query_params)
     view = qp.get("view", "home")
     return view
 
 def set_qp(**kwargs):
+    # Erstatning for experimental_set_query_params
     qp = dict(st.query_params)
     qp.update({k: v for k, v in kwargs.items() if v is not None})
     st.query_params.clear()
@@ -130,13 +150,14 @@ def set_qp(**kwargs):
 
 def link_for(base_url, params: dict):
     base = base_url.rstrip("/")
-    query = "&".join(f"{k}={v}" for k,v in params.items())
+    query = "&".join(f"{k}={v}" for k, v in params.items())
     return f"{base}/?{query}"
 
 # ---------- Views ----------
 def view_home():
     st.subheader("Opret eller åbn en session")
     col1, col2 = st.columns(2)
+
     with col1:
         st.markdown("#### Opret ny session")
         title = st.text_input("Titel (valgfri)", "")
@@ -149,6 +170,7 @@ def view_home():
             session = ensure_session(sid, title=title)
             st.success(f"Session oprettet: {session['id']}")
             st.session_state["last_session"] = session
+
     with col2:
         st.markdown("#### Åbn eksisterende session")
         sid2 = st.text_input("Session ID", key="open_sid")
@@ -164,12 +186,18 @@ def view_home():
         s = st.session_state["last_session"]
         st.divider()
         st.markdown(f"### Session: `{s['id']}` {('– ' + s['title']) if s.get('title') else ''}")
-        base_url = st.text_input("Offentligt base-URL (brug det, publikum kan nå)",
-                                 value="http://localhost:8501")
-        join_url = link_for(base_url, {"view":"ask", "room": s["id"]})
-        admin_url = link_for(base_url, {"view":"admin", "room": s["id"], "key": s["admin_key"]})
 
-        c1, c2 = st.columns([2,3])
+        # Default til PUBLIC_BASE_URL hvis sat (så QR altid peger udad i Cloud)
+        default_base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8501")
+        base_url = st.text_input(
+            "Offentligt base-URL (brug det, publikum kan nå)",
+            value=default_base
+        )
+
+        join_url = link_for(base_url, {"view": "ask", "room": s["id"]})
+        admin_url = link_for(base_url, {"view": "admin", "room": s["id"], "key": s["admin_key"]})
+
+        c1, c2 = st.columns([2, 3])
         with c1:
             st.markdown("**Publikum-link**")
             st.code(join_url, language="text")
@@ -178,6 +206,7 @@ def view_home():
             img = make_qr_png(join_url)
             st.markdown("**QR-kode til publikum**")
             st.image(img, caption="Scan for at stille spørgsmål", use_column_width=False)
+
         with c2:
             st.info("Tip: Vis denne side's QR på storskærm før Q&A.")
             st.markdown("- Publikum: kan kun indsende spørgsmål.\n- Moderator: kan skjule/markere som besvaret og slette.")
@@ -192,6 +221,7 @@ def view_ask():
     if not s:
         st.error("Session findes ikke.")
         return
+
     st.header(f"Stil et spørgsmål · {room}")
     txt = st.text_area("Skriv dit spørgsmål her:", height=140, placeholder="Hvad vil du gerne have uddybet?")
     if st.button("Send spørgsmål"):
@@ -221,14 +251,16 @@ def view_admin():
     st.header(f"Moderator · {room}")
     st.caption("Denne visning opdaterer automatisk.")
     set_qp(view="admin", room=room, key=key)
+
     st.sidebar.write("Session info")
     st.sidebar.code(f"ID: {room}\nAdmin key: {key}")
-    base_url = st.sidebar.text_input("Base URL til QR", value="http://localhost:8501")
-    st.sidebar.code(link_for(base_url, {"view":"ask","room":room}), language="text")
-    st.sidebar.image(make_qr_png(link_for(base_url, {"view":"ask","room":room})))
+    base_url = st.sidebar.text_input("Base URL til QR", value=os.environ.get("PUBLIC_BASE_URL", "http://localhost:8501"))
+    st.sidebar.code(link_for(base_url, {"view": "ask", "room": room}), language="text")
+    st.sidebar.image(make_qr_png(link_for(base_url, {"view": "ask", "room": room})))
 
-    colA, colB = st.columns([1,3])
+    colA, colB = st.columns([1, 3])
     with colA:
+        # Manuelt refresh (kan suppleres med auto-refresh, fx st.switch_page el. timer)
         if st.button("Opdater liste"):
             st.rerun()
     with colB:
@@ -242,25 +274,28 @@ def view_admin():
             with st.container(border=True):
                 st.markdown(r["text"])
                 meta = datetime.fromtimestamp(r["created_at"]).strftime("%H:%M:%S")
-                st.caption(f"id: {r['id'][:8]} • {meta} • "
-                           f"{'SKJULT • ' if r['hidden'] else ''}"
-                           f"{'BESVARET' if r['answered'] else ''}")
+                st.caption(
+                    f"id: {r['id'][:8]} • {meta} • "
+                    f"{'SKJULT • ' if r['hidden'] else ''}"
+                    f"{'BESVARET' if r['answered'] else ''}"
+                )
+
                 c1, c2, c3 = st.columns(3)
-               with c1:
-    if st.button(("Vis" if r["hidden"] else "Skjul"), key=f"h{r['id']}"):
-        toggle_field(r["id"], "hidden")
-        st.rerun()
 
-with c2:
-    if st.button(("Markér ubesvaret" if r["answered"] else "Markér besvaret"), key=f"a{r['id']}"):
-        toggle_field(r["id"], "answered")
-        st.rerun()
+                with c1:
+                    if st.button(("Vis" if r["hidden"] else "Skjul"), key=f"h{r['id']}"):
+                        toggle_field(r["id"], "hidden")
+                        st.rerun()
 
-with c3:
-    if st.button("Slet", key=f"d{r['id']}"):
-        delete_question(r["id"])
-        st.rerun()
+                with c2:
+                    if st.button(("Markér ubesvaret" if r["answered"] else "Markér besvaret"), key=f"a{r['id']}"):
+                        toggle_field(r["id"], "answered")
+                        st.rerun()
 
+                with c3:
+                    if st.button("Slet", key=f"d{r['id']}"):
+                        delete_question(r["id"])
+                        st.rerun()
 
         st.divider()
         df = export_csv(room)
