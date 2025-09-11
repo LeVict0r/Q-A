@@ -230,7 +230,7 @@ def view_admin():
     colA, colB = st.columns([1,3])
     with colA:
         if st.button("Opdater liste"):
-            st.experimental_rerun()
+            st.rerun()
     with colB:
         st.caption("Listen sorteres: ubesvarede først, derefter skjulte, ældst først.")
 
@@ -249,15 +249,15 @@ def view_admin():
                 with c1:
                     if st.button(("Vis" if r["hidden"] else "Skjul"), key=f"h{r['id']}"):
                         toggle_field(r["id"], "hidden")
-                        st.experimental_rerun()
+                        st.rerun()
                 with c2:
                     if st.button(("Markér ubesvaret" if r["answered"] else "Markér besvaret"), key=f"a{r['id']}"):
                         toggle_field(r["id"], "answered")
-                        st.experimental_rerun()
+                        st.rerun()
                 with c3:
                     if st.button("Slet", key=f"d{r['id']}"):
                         delete_question(r["id"])
-                        st.experimental_rerun()
+                       st.rerun()
 
         st.divider()
         df = export_csv(room)
