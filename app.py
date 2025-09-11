@@ -298,26 +298,26 @@ def view_ask():
 
     st.header(f"Stil et spørgsmål · {room}")
 
-    # Sørg for at have en key i session_state
-    if "question_text" not in st.session_state:
-        st.session_state["question_text"] = ""
+    # Brug en form der rydder input automatisk ved submit
+    with st.form("ask_form", clear_on_submit=True):
+        txt = st.text_area(
+            "Skriv dit spørgsmål her:",
+            height=140,
+            placeholder="Hvad vil du gerne have uddybet?",
+            key="question_text",
+        )
+        submitted = st.form_submit_button("Send spørgsmål")
 
-    txt = st.text_area(
-        "Skriv dit spørgsmål her:",
-        height=140,
-        placeholder="Hvad vil du gerne have uddybet?",
-        key="question_text"
-    )
-
-    if st.button("Send spørgsmål"):
-        t = txt.strip()
+    if submitted:
+        t = (txt or "").strip()
         if len(t) == 0:
             st.warning("Skriv venligst et spørgsmål.")
         else:
             add_question(room, t)
             st.success("Tak – dit spørgsmål er sendt!")
-            # Nulstil tekstfeltet
-            st.session_state["question_text"] = ""
+            # Formen er clear_on_submit=True, så tekstfeltet er allerede tømt.
+            # Vi bibeholder URL'ens params:
+            set_qp(view="ask", room=room)
             st.rerun()
 
 def view_admin():
