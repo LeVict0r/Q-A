@@ -14,7 +14,7 @@ APP_TITLE = "Q&A"
 # --- Brand farver ---
 BRAND_DARK = "#fffff"
 BRAND_DETAIL = "#d6a550"
-BRAND_ACCENT = "#004899"
+BRAND_ACCENT = "#d6a550"
 
 # --- Robust DB-path (Cloud-safe) ---
 # På Streamlit Cloud er /mount/data skrivbart. Lokalt falder vi tilbage til current dir.
