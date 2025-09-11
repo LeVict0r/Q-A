@@ -9,12 +9,94 @@ import qrcode
 import streamlit as st
 from PIL import Image
 
-APP_TITLE = "Q&A Lite (Streamlit)"
+APP_TITLE = "Q&A"
+
+# --- Brand farver ---
+BRAND_DARK = "#1f2951"
+BRAND_DETAIL = "#d6a550"
+BRAND_ACCENT = "#004899"
 
 # --- Robust DB-path (Cloud-safe) ---
 # På Streamlit Cloud er /mount/data skrivbart. Lokalt falder vi tilbage til current dir.
 _default_cloud_dir = "/mount/data" if os.path.isdir("/mount/data") else os.getcwd()
 DB_PATH = os.environ.get("QNA_DB_PATH", os.path.join(_default_cloud_dir, "qna_streamlit.db"))
+
+# ---------- Styling ----------
+def inject_theme():
+    st.markdown(
+        f"""
+        <style>
+        :root {{
+            --brand-dark: {BRAND_DARK};
+            --brand-detail: {BRAND_DETAIL};
+            --brand-accent: {BRAND_ACCENT};
+        }}
+        /* App baggrund */
+        .stApp {{
+            background-color: #ffffff;
+        }}
+
+        /* Topbar-gradient for lidt “scene”-energi */
+        header[data-testid="stHeader"] {{
+            background: linear-gradient(90deg, var(--brand-dark) 0%, var(--brand-accent) 100%);
+        }}
+
+        /* Overskrifter */
+        h1, h2, h3, h4, h5, h6 {{
+            color: var(--brand-dark) !important;
+        }}
+
+        /* Links */
+        a {{
+            color: var(--brand-accent) !important;
+            text-decoration: none;
+        }}
+        a:hover {{
+            text-decoration: underline;
+        }}
+
+        /* Knapper */
+        .stButton>button {{
+            background: var(--brand-accent) !important;
+            color: #ffffff !important;
+            border: 0 !important;
+            border-radius: 10px !important;
+            padding: 0.6rem 1rem !important;
+            font-weight: 600 !important;
+        }}
+        .stButton>button:hover {{
+            filter: brightness(1.05);
+        }}
+
+        /* Download-knap i detail-farve */
+        .stDownloadButton>button {{
+            background: var(--brand-detail) !important;
+            color: #000000 !important;
+            border: 0 !important;
+            border-radius: 10px !important;
+            padding: 0.6rem 1rem !important;
+            font-weight: 600 !important;
+        }}
+
+        /* Inputs / textarea */
+        textarea, .stTextInput input {{
+            border: 1px solid rgba(31,41,81,0.25) !important;
+            border-radius: 10px !important;
+        }}
+
+        /* Info/alert-bokse – lille venstre kant i detail-farven */
+        .stAlert>div {{
+            border-left: 6px solid var(--brand-detail);
+        }}
+
+        /* Små chips/labels (code) */
+        code {{
+            color: var(--brand-dark) !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # ---------- DB Helpers ----------
 def get_db():
@@ -131,8 +213,9 @@ def make_qr_png(data: str) -> Image.Image:
 # ---------- UI Helpers ----------
 def header():
     st.set_page_config(page_title=APP_TITLE, page_icon="❓", layout="wide")
+    inject_theme()
     st.title(APP_TITLE)
-    st.caption("Superenkel, self-hosted live Q&A – publikum skriver spørgsmål, du modererer.")
+    st.caption("Stil et spørgsmål til scenen.")
 
 def nav():
     # Ny API: st.query_params er dict-lignende
@@ -260,7 +343,6 @@ def view_admin():
 
     colA, colB = st.columns([1, 3])
     with colA:
-        # Manuelt refresh (kan suppleres med auto-refresh, fx st.switch_page el. timer)
         if st.button("Opdater liste"):
             st.rerun()
     with colB:
