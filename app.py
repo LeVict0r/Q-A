@@ -249,15 +249,15 @@ def view_admin():
                 with c1:
                     if st.button(("Vis" if r["hidden"] else "Skjul"), key=f"h{r['id']}"):
                         toggle_field(r["id"], "hidden")
-                        st.rerun()
+                            st.rerun()
                 with c2:
                     if st.button(("Markér ubesvaret" if r["answered"] else "Markér besvaret"), key=f"a{r['id']}"):
                         toggle_field(r["id"], "answered")
-                        st.rerun()
+                            st.rerun()
                 with c3:
                     if st.button("Slet", key=f"d{r['id']}"):
                         delete_question(r["id"])
-                       st.rerun()
+                           st.rerun()
 
         st.divider()
         df = export_csv(room)
