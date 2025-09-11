@@ -33,7 +33,7 @@ def inject_theme():
         }}
         /* App baggrund */
         .stApp {{
-            background-color: #ffffff;
+            background-color: #1f2951;
         }}
 
         /* Topbar-gradient for lidt “scene”-energi */
@@ -58,7 +58,7 @@ def inject_theme():
         /* Knapper */
         .stButton>button {{
             background: var(--brand-accent) !important;
-            color: #ffffff !important;
+            color: #1f2951 !important;
             border: 0 !important;
             border-radius: 10px !important;
             padding: 0.6rem 1rem !important;
