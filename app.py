@@ -265,8 +265,20 @@ def view_home():
         st.divider()
         st.markdown(f"### Session: `{s['id']}` {('– ' + s['title']) if s.get('title') else ''}")
 
-        default_base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8501")
-        base_url = st.text_input("Offentligt base-URL (brug det, publikum kan nå)", value=default_base)
+        # Brug PUBLIC_BASE_URL hvis sat, ellers default til din offentlige URL
+        default_public_url = "https://fremtidensbyggeri-appv2-4jb4dnsmshrhypicrqfjd2.streamlit.app"
+        env_base = os.environ.get("PUBLIC_BASE_URL")
+        if env_base:
+            base_url = env_base.rstrip("/")
+            st.markdown("**Offentligt base-URL (låst fra miljøvariabel):**")
+            st.code(base_url, language="text")
+        else:
+            base_url = st.text_input(
+                "Offentligt base-URL (brug det, publikum kan nå)",
+                value=default_public_url
+            ).rstrip("/")
+            if base_url.startswith("http://localhost") or base_url.startswith("http://127.0.0.1"):
+                st.warning("🟠 Base-URL er localhost. QR virker ikke for publikum. Brug din offentlige URL.")
 
         join_url = link_for(base_url, {"view": "ask", "room": s["id"]})
         admin_url = link_for(base_url, {"view": "admin", "room": s["id"], "key": s["admin_key"]})
@@ -277,12 +289,17 @@ def view_home():
             st.code(join_url, language="text")
             st.markdown("**Moderator-link**")
             st.code(admin_url, language="text")
-            img = make_qr_png(join_url)
-            st.markdown("**QR-kode til publikum**")
-            st.image(img, caption="Scan for at stille spørgsmål", use_column_width=False)
+
+            # Vis kun QR hvis base ikke er localhost
+            if base_url.startswith("http://localhost") or base_url.startswith("http://127.0.0.1"):
+                st.info("QR skjult, fordi Base-URL er localhost.")
+            else:
+                img = make_qr_png(join_url)
+                st.markdown("**QR-kode til publikum**")
+                st.image(img, caption="Scan for at stille spørgsmål", use_column_width=False)
 
         with c2:
-            st.info("Tip: Vis denne side's QR på storskærm før Q&A.")
+            st.info("Tip: Brug den offentlige URL fra din Streamlit Cloud-app, så alle – også på 5G – kan deltage.")
             st.markdown("- Publikum: kan kun indsende spørgsmål.\n- Moderator: kan skjule/markere som besvaret og slette.")
 
 def view_ask():
@@ -298,7 +315,7 @@ def view_ask():
 
     st.header(f"Stil et spørgsmål · {room}")
 
-    # Brug en form der rydder input automatisk ved submit
+    # Form: clearer input automatisk ved submit
     with st.form("ask_form", clear_on_submit=True):
         txt = st.text_area(
             "Skriv dit spørgsmål her:",
@@ -315,8 +332,6 @@ def view_ask():
         else:
             add_question(room, t)
             st.success("Tak – dit spørgsmål er sendt!")
-            # Formen er clear_on_submit=True, så tekstfeltet er allerede tømt.
-            # Vi bibeholder URL'ens params:
             set_qp(view="ask", room=room)
             st.rerun()
 
@@ -339,11 +354,22 @@ def view_admin():
     st.caption("Denne visning opdaterer automatisk.")
     set_qp(view="admin", room=room, key=key)
 
-    st.sidebar.write("Session info")
-    st.sidebar.code(f"ID: {room}\nAdmin key: {key}")
-    base_url = st.sidebar.text_input("Base URL til QR", value=os.environ.get("PUBLIC_BASE_URL", "http://localhost:8501"))
-    st.sidebar.code(link_for(base_url, {"view": "ask", "room": room}), language="text")
-    st.sidebar.image(make_qr_png(link_for(base_url, {"view": "ask", "room": room})))
+    # Sidebar base-url (samme logik som på forsiden)
+    default_public_url = "https://fremtidensbyggeri-appv2-4jb4dnsmshrhypicrqfjd2.streamlit.app"
+    env_base = os.environ.get("PUBLIC_BASE_URL")
+    if env_base:
+        base_url = env_base.rstrip("/")
+        st.sidebar.markdown("**Base URL (låst fra miljøvariabel):**")
+        st.sidebar.code(base_url, language="text")
+    else:
+        base_url = st.sidebar.text_input("Base URL til QR", value=default_public_url).rstrip("/")
+
+    ask_url = link_for(base_url, {"view": "ask", "room": room})
+    st.sidebar.code(ask_url, language="text")
+    if base_url.startswith("http://localhost") or base_url.startswith("http://127.0.0.1"):
+        st.sidebar.info("QR skjult, fordi Base-URL er localhost.")
+    else:
+        st.sidebar.image(make_qr_png(ask_url))
 
     colA, colB = st.columns([1, 3])
     with colA:
