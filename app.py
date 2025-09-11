@@ -297,7 +297,18 @@ def view_ask():
         return
 
     st.header(f"Stil et spørgsmål · {room}")
-    txt = st.text_area("Skriv dit spørgsmål her:", height=140, placeholder="Hvad vil du gerne have uddybet?")
+
+    # Sørg for at have en key i session_state
+    if "question_text" not in st.session_state:
+        st.session_state["question_text"] = ""
+
+    txt = st.text_area(
+        "Skriv dit spørgsmål her:",
+        height=140,
+        placeholder="Hvad vil du gerne have uddybet?",
+        key="question_text"
+    )
+
     if st.button("Send spørgsmål"):
         t = txt.strip()
         if len(t) == 0:
@@ -305,7 +316,9 @@ def view_ask():
         else:
             add_question(room, t)
             st.success("Tak – dit spørgsmål er sendt!")
-            set_qp(view="ask", room=room)
+            # Nulstil tekstfeltet
+            st.session_state["question_text"] = ""
+            st.rerun()
 
 def view_admin():
     qp = dict(st.query_params)
