@@ -12,7 +12,7 @@ from PIL import Image
 APP_TITLE = "Q&A"
 
 # --- Brand farver ---
-BRAND_DARK = "#1f2951"
+BRAND_DARK = "#fffff"
 BRAND_DETAIL = "#d6a550"
 BRAND_ACCENT = "#004899"
 
