@@ -1,5 +1,3 @@
-Her er en opdateret app.py hvor CSS’en er tilpasset efter de regler. Kopiér hele filen ind i dit projekt (jeg viser kun forskellen i CSS-delen – resten af logikken er uændret fra sidste version):
-
 import os
 import sqlite3
 import time
@@ -16,7 +14,7 @@ APP_TITLE = "Q&A"
 # --- Brand farver ---
 BRAND_BG = "#1f2951"     # mørkeblå baggrund
 BRAND_GOLD = "#d6a550"   # detaljer/knapper
-BRAND_ACCENT = "#004899" # evt. ekstra accent (ikke så meget brugt her)
+BRAND_ACCENT = "#004899" # evt. ekstra accent (ikke brugt meget her)
 
 # --- Robust DB-path (Cloud-safe) ---
 _default_cloud_dir = "/mount/data" if os.path.isdir("/mount/data") else os.getcwd()
@@ -32,7 +30,7 @@ def inject_theme():
             --brand-gold: {BRAND_GOLD};
         }}
 
-        /* Hele appens baggrund */
+        /* Hele appens baggrund + standardtekst */
         .stApp {{
             background-color: var(--brand-bg) !important;
             color: #ffffff !important;
@@ -57,9 +55,7 @@ def inject_theme():
             padding: 0.6rem 1rem !important;
             font-weight: 600 !important;
         }}
-        .stButton>button:hover {{
-            filter: brightness(1.1);
-        }}
+        .stButton>button:hover {{ filter: brightness(1.1); }}
 
         /* Download-knap */
         .stDownloadButton>button {{
@@ -80,9 +76,7 @@ def inject_theme():
         }}
 
         /* Placeholder i tekstfelter */
-        ::placeholder {{
-            color: #cccccc !important;
-        }}
+        ::placeholder {{ color: #cccccc !important; }}
 
         /* Info/alert-bokse */
         .stAlert>div {{
@@ -210,7 +204,6 @@ def make_qr_png(data: str) -> Image.Image:
     qr.add_data(data)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
-    # qrcode returnerer en PilImage-wrapper – træk ægte PIL.Image ud
     if hasattr(img, "get_image"):
         img = img.get_image()
     return img.convert("RGB")
@@ -223,13 +216,10 @@ def header():
     st.caption("Stil et spørgsmål til scenen.")
 
 def nav():
-    # Ny API: st.query_params er dict-lignende
     qp = dict(st.query_params)
-    view = qp.get("view", "home")
-    return view
+    return qp.get("view", "home")
 
 def set_qp(**kwargs):
-    # Erstatning for experimental_set_query_params
     qp = dict(st.query_params)
     qp.update({k: v for k, v in kwargs.items() if v is not None})
     st.query_params.clear()
@@ -275,12 +265,8 @@ def view_home():
         st.divider()
         st.markdown(f"### Session: `{s['id']}` {('– ' + s['title']) if s.get('title') else ''}")
 
-        # Default til PUBLIC_BASE_URL hvis sat (så QR altid peger udad i Cloud)
         default_base = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8501")
-        base_url = st.text_input(
-            "Offentligt base-URL (brug det, publikum kan nå)",
-            value=default_base
-        )
+        base_url = st.text_input("Offentligt base-URL (brug det, publikum kan nå)", value=default_base)
 
         join_url = link_for(base_url, {"view": "ask", "room": s["id"]})
         admin_url = link_for(base_url, {"view": "admin", "room": s["id"], "key": s["admin_key"]})
