@@ -30,67 +30,49 @@ def inject_theme():
             --brand-gold: {BRAND_GOLD};
         }}
 
-        /* Hele appens baggrund + standardtekst */
-        .stApp {{
-            background-color: var(--brand-bg) !important;
-            color: #ffffff !important;
-        }}
-
-        /* Alle overskrifter */
-        h1, h2, h3, h4, h5, h6 {{
-            color: #ffffff !important;
-        }}
-
-        /* Links */
-        a {{
-            color: var(--brand-gold) !important;
-        }}
-
-        /* Knapper */
-        .stButton>button {{
+        /* Standard (uanset tema) */
+        .stButton>button, .stDownloadButton>button {{
             background-color: var(--brand-gold) !important;
-            color: #ffffff !important;
             border: none !important;
             border-radius: 10px !important;
             padding: 0.6rem 1rem !important;
             font-weight: 600 !important;
         }}
-        .stButton>button:hover {{ filter: brightness(1.1); }}
-
-        /* Download-knap */
-        .stDownloadButton>button {{
-            background-color: var(--brand-gold) !important;
-            color: #ffffff !important;
-            border: none !important;
-            border-radius: 10px !important;
-            padding: 0.6rem 1rem !important;
-            font-weight: 600 !important;
+        .stButton>button:hover,
+        .stDownloadButton>button:hover {{
+            filter: brightness(1.1);
         }}
 
-        /* Tekstfelter og textarea */
-        textarea, .stTextInput input {{
-            background-color: rgba(255,255,255,0.1) !important;
-            color: #ffffff !important;
-            border: 1px solid var(--brand-gold) !important;
-            border-radius: 8px !important;
+        /* Dark mode */
+        @media (prefers-color-scheme: dark) {{
+            .stApp {{
+                background-color: var(--brand-bg) !important;
+                color: #ffffff !important;
+            }}
+            h1, h2, h3, h4, h5, h6,
+            .stMarkdown, .stTextInput input, textarea {{
+                color: #ffffff !important;
+            }}
+            a {{ color: var(--brand-gold) !important; }}
+            .stButton>button, .stDownloadButton>button {{
+                color: #ffffff !important;
+            }}
         }}
 
-        /* Placeholder i tekstfelter */
-        ::placeholder {{ color: #cccccc !important; }}
-
-        /* Info/alert-bokse */
-        .stAlert>div {{
-            background-color: rgba(255,255,255,0.1) !important;
-            color: #ffffff !important;
-            border-left: 6px solid var(--brand-gold) !important;
-        }}
-
-        /* Code blocks */
-        code {{
-            background-color: rgba(255,255,255,0.1) !important;
-            color: #ffffff !important;
-            padding: 2px 6px;
-            border-radius: 4px;
+        /* Light mode */
+        @media (prefers-color-scheme: light) {{
+            .stApp {{
+                background-color: #ffffff !important;
+                color: #000000 !important;
+            }}
+            h1, h2, h3, h4, h5, h6,
+            .stMarkdown, .stTextInput input, textarea {{
+                color: #000000 !important;
+            }}
+            a {{ color: var(--brand-bg) !important; }}
+            .stButton>button, .stDownloadButton>button {{
+                color: #000000 !important;
+            }}
         }}
         </style>
         """,
