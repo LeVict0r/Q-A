@@ -12,9 +12,9 @@ from PIL import Image
 APP_TITLE = "Q&A"
 
 # --- Brand farver ---
-BRAND_BG = "#1f2951"     # mørkeblå baggrund
-BRAND_GOLD = "#d6a550"   # detaljer/knapper
-BRAND_ACCENT = "#004899" # evt. ekstra accent (ikke brugt meget her)
+BRAND_BG_DARK = "#1f2951"   # mørkeblå baggrund (dark mode)
+BRAND_GOLD    = "#d6a550"   # detaljer/knapper
+BRAND_ACCENT  = "#004899"   # ikke brugt meget, men handy
 
 # --- Robust DB-path (Cloud-safe) ---
 _default_cloud_dir = "/mount/data" if os.path.isdir("/mount/data") else os.getcwd()
@@ -22,15 +22,16 @@ DB_PATH = os.environ.get("QNA_DB_PATH", os.path.join(_default_cloud_dir, "qna_st
 
 # ---------- Styling ----------
 def inject_theme():
+    # Responsiv styling efter brugerens systemtema (dark/light)
     st.markdown(
         f"""
         <style>
         :root {{
-            --brand-bg: {BRAND_BG};
+            --brand-bg-dark: {BRAND_BG_DARK};
             --brand-gold: {BRAND_GOLD};
         }}
 
-        /* Standard (uanset tema) */
+        /* Knapper (fælles) */
         .stButton>button, .stDownloadButton>button {{
             background-color: var(--brand-gold) !important;
             border: none !important;
@@ -38,40 +39,59 @@ def inject_theme():
             padding: 0.6rem 1rem !important;
             font-weight: 600 !important;
         }}
-        .stButton>button:hover,
-        .stDownloadButton>button:hover {{
+        .stButton>button:hover, .stDownloadButton>button:hover {{
             filter: brightness(1.1);
         }}
 
         /* Dark mode */
         @media (prefers-color-scheme: dark) {{
-            .stApp {{
-                background-color: var(--brand-bg) !important;
-                color: #ffffff !important;
-            }}
+            .stApp {{ background-color: var(--brand-bg-dark) !important; color: #ffffff !important; }}
             h1, h2, h3, h4, h5, h6,
-            .stMarkdown, .stTextInput input, textarea {{
-                color: #ffffff !important;
-            }}
+            .stMarkdown, .stTextInput input, textarea {{ color: #ffffff !important; }}
             a {{ color: var(--brand-gold) !important; }}
-            .stButton>button, .stDownloadButton>button {{
+            .stButton>button, .stDownloadButton>button {{ color: #ffffff !important; }}
+            textarea, .stTextInput input {{
+                background-color: rgba(255,255,255,0.1) !important;
                 color: #ffffff !important;
+                border: 1px solid var(--brand-gold) !important;
+                border-radius: 8px !important;
+            }}
+            .stAlert>div {{
+                background-color: rgba(255,255,255,0.1) !important;
+                color: #ffffff !important;
+                border-left: 6px solid var(--brand-gold) !important;
+            }}
+            code {{
+                background-color: rgba(255,255,255,0.1) !important;
+                color: #ffffff !important;
+                padding: 2px 6px;
+                border-radius: 4px;
             }}
         }}
 
         /* Light mode */
         @media (prefers-color-scheme: light) {{
-            .stApp {{
-                background-color: #ffffff !important;
-                color: #000000 !important;
-            }}
+            .stApp {{ background-color: #ffffff !important; color: #000000 !important; }}
             h1, h2, h3, h4, h5, h6,
-            .stMarkdown, .stTextInput input, textarea {{
+            .stMarkdown, .stTextInput input, textarea {{ color: #000000 !important; }}
+            a {{ color: {BRAND_BG_DARK} !important; }}
+            .stButton>button, .stDownloadButton>button {{ color: #000000 !important; }}
+            textarea, .stTextInput input {{
+                background-color: rgba(0,0,0,0.03) !important;
                 color: #000000 !important;
+                border: 1px solid {BRAND_GOLD} !important;
+                border-radius: 8px !important;
             }}
-            a {{ color: var(--brand-bg) !important; }}
-            .stButton>button, .stDownloadButton>button {{
+            .stAlert>div {{
+                background-color: rgba(0,0,0,0.03) !important;
                 color: #000000 !important;
+                border-left: 6px solid var(--brand-gold) !important;
+            }}
+            code {{
+                background-color: rgba(0,0,0,0.04) !important;
+                color: #000000 !important;
+                padding: 2px 6px;
+                border-radius: 4px;
             }}
         }}
         </style>
@@ -84,6 +104,15 @@ def get_db():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
+
+def ensure_column(conn, table, column, coltype):
+    cur = conn.cursor
+    cur = conn.cursor()
+    cur.execute(f"PRAGMA table_info({table})")
+    cols = [r[1] for r in cur.fetchall()]
+    if column not in cols:
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
+        conn.commit()
 
 def init_db():
     conn = get_db()
@@ -103,6 +132,8 @@ def init_db():
         answered INTEGER DEFAULT 0
     )""")
     conn.commit()
+    # Sikr kolonne til anonym spørger (device-ID)
+    ensure_column(conn, "questions", "asker_id", "TEXT")
 
 def ensure_session(session_id, title="", admin_key=None):
     conn = get_db()
@@ -127,13 +158,13 @@ def get_session(session_id):
     row = cur.fetchone()
     return dict(row) if row else None
 
-def add_question(session_id, text):
+def add_question(session_id, text, asker_id=None):
     qid = uuid.uuid4().hex
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO questions(id,session_id,text,created_at,hidden,answered) VALUES(?,?,?,?,0,0)",
-        (qid, session_id, text[:1000], int(time.time()))
+        "INSERT INTO questions(id,session_id,text,created_at,hidden,answered,asker_id) VALUES(?,?,?,?,0,0,?)",
+        (qid, session_id, text[:1000], int(time.time()), asker_id)
     )
     conn.commit()
     return qid
@@ -153,6 +184,22 @@ def list_questions(session_id, include_hidden=True):
                ORDER BY answered ASC, created_at ASC""",
             (session_id,)
         )
+    rows = cur.fetchall
+    rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+def list_user_questions_last24(session_id, asker_id):
+    if not asker_id:
+        return []
+    conn = get_db()
+    cur = conn.cursor()
+    cutoff = int(time.time()) - 24*3600
+    cur.execute(
+        """SELECT * FROM questions
+           WHERE session_id=? AND asker_id=? AND created_at>=?
+           ORDER BY created_at DESC""",
+        (session_id, asker_id, cutoff)
+    )
     rows = cur.fetchall()
     return [dict(r) for r in rows]
 
@@ -262,7 +309,7 @@ def view_home():
             if base_url.startswith("http://localhost") or base_url.startswith("http://127.0.0.1"):
                 st.warning("🟠 Base-URL er localhost. QR virker ikke for publikum. Brug din offentlige URL.")
 
-        join_url = link_for(base_url, {"view": "ask", "room": s["id"]})
+        join_url  = link_for(base_url, {"view": "ask",   "room": s["id"]})
         admin_url = link_for(base_url, {"view": "admin", "room": s["id"], "key": s["admin_key"]})
 
         c1, c2 = st.columns([2, 3])
@@ -297,6 +344,11 @@ def view_ask():
 
     st.header(f"Stil et spørgsmål · {room}")
 
+    # Anonym device-ID pr. browser-session
+    if "asker_id" not in st.session_state:
+        st.session_state["asker_id"] = uuid.uuid4().hex
+    asker_id = st.session_state["asker_id"]
+
     # Form: clearer input automatisk ved submit
     with st.form("ask_form", clear_on_submit=True):
         txt = st.text_area(
@@ -312,10 +364,26 @@ def view_ask():
         if len(t) == 0:
             st.warning("Skriv venligst et spørgsmål.")
         else:
-            add_question(room, t)
+            add_question(room, t, asker_id=asker_id)
             st.success("Tak – dit spørgsmål er sendt!")
             set_qp(view="ask", room=room)
             st.rerun()
+
+    # Dine spørgsmål i dag (seneste 24 timer)
+    mine = list_user_questions_last24(room, asker_id)
+    st.subheader("Dine spørgsmål i dag")
+    if not mine:
+        st.caption("Du har ikke stillet nogen spørgsmål i dag.")
+    else:
+        for q in mine:
+            ts = datetime.fromtimestamp(q["created_at"]).strftime("%H:%M")
+            badge = []
+            if q.get("answered"):
+                badge.append("besvaret")
+            if q.get("hidden"):
+                badge.append("skjult")
+            btxt = f" ({', '.join(badge)})" if badge else ""
+            st.markdown(f"- {q['text']}  \n  <span style='opacity:.7;font-size:0.9em'>kl. {ts}{btxt}</span>", unsafe_allow_html=True)
 
 def view_admin():
     qp = dict(st.query_params)
