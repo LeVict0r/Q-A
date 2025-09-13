@@ -106,7 +106,6 @@ def get_db():
     return conn
 
 def ensure_column(conn, table, column, coltype):
-    cur = conn.cursor
     cur = conn.cursor()
     cur.execute(f"PRAGMA table_info({table})")
     cols = [r[1] for r in cur.fetchall()]
@@ -184,7 +183,6 @@ def list_questions(session_id, include_hidden=True):
                ORDER BY answered ASC, created_at ASC""",
             (session_id,)
         )
-    rows = cur.fetchall
     rows = cur.fetchall()
     return [dict(r) for r in rows]
 
@@ -200,6 +198,26 @@ def list_user_questions_last24(session_id, asker_id):
            ORDER BY created_at DESC""",
         (session_id, asker_id, cutoff)
     )
+    rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+def list_sessions_with_stats(only_used=False, limit=20):
+    """Sessions med antal spørgsmål og seneste aktivitet."""
+    conn = get_db()
+    cur = conn.cursor()
+    base_sql = """
+        SELECT s.id, s.title, s.admin_key, s.created_at,
+               COUNT(q.id) AS q_count,
+               COALESCE(MAX(q.created_at), s.created_at) AS last_activity
+        FROM sessions s
+        LEFT JOIN questions q ON q.session_id = s.id
+    """
+    if only_used:
+        base_sql += " GROUP BY s.id HAVING COUNT(q.id) > 0"
+    else:
+        base_sql += " GROUP BY s.id"
+    base_sql += " ORDER BY last_activity DESC LIMIT ?"
+    cur.execute(base_sql, (limit,))
     rows = cur.fetchall()
     return [dict(r) for r in rows]
 
@@ -288,6 +306,27 @@ def view_home():
                 st.success(f"Åbnede session: {s['id']}")
             else:
                 st.error("Session findes ikke.")
+
+        # NYT: Liste over BRUGTE sessions (med aktivitet)
+        st.markdown("#### Brugte sessions (seneste)")
+        used = list_sessions_with_stats(only_used=True, limit=20)
+        if not used:
+            st.caption("Ingen brugte sessions endnu.")
+        else:
+            for r in used:
+                title = r["title"] or r["id"]
+                ts = datetime.fromtimestamp(r["last_activity"]).strftime("%Y-%m-%d %H:%M")
+                with st.container(border=True):
+                    st.markdown(f"**{title}**  \n`{r['id']}` • {r['q_count']} spørgsmål • senest {ts}")
+                    cA, cB = st.columns(2)
+                    with cA:
+                        if st.button("Åbn", key=f"open_used_{r['id']}"):
+                            s = get_session(r["id"])
+                            st.session_state["last_session"] = s
+                            st.rerun()
+                    with cB:
+                        # lille “kopiér id” convenience
+                        st.code(r["id"], language="text")
 
     if "last_session" in st.session_state:
         s = st.session_state["last_session"]
